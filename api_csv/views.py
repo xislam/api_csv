@@ -1,11 +1,9 @@
 import csv
-import io
 
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
 
-# ViewSets define the view behavior.
 from api_csv.models import Transaction, Gem, User
 from .serializer import UploadSerializer, TransactionSerializer, GemSerializer, UsersSerializer
 
@@ -13,8 +11,27 @@ from .serializer import UploadSerializer, TransactionSerializer, GemSerializer, 
 class UploadViewSet(ViewSet):
     serializer_class = UploadSerializer
 
-    # def get(self, request):
-    #     pass
+    def get(self, request):
+        buyers = User.objects.top_buyers()[:5].prefetch_related('transaction')
+        users_gems = {}
+        for user in buyers:
+            user_gems = set(recording.item for recording in user.transaction.select_related('item'))
+            users_gems[user] = user_gems
+        users = []
+        for user in buyers:
+            user_gems = users_gems.pop(user)
+            other_user_gems = []
+            for gems in users_gems.values():
+                other_user_gems.extend(gems)
+            cross_gems = []
+            for user_gem in user_gems:
+                if user_gem in other_user_gems:
+                    cross_gems.append(user_gem.text)
+            users_gems[user] = user_gems
+            users.append({'username': user.username,
+                          'spent_money': user.total_sum,
+                          'gems': cross_gems})
+        return Response(users, status=status.HTTP_200_OK)
 
     def create(self, request):
         file_serializer = UploadSerializer(data=request.data)

@@ -2,16 +2,15 @@ from django.db import models
 from django.db.models import Sum
 
 
-class UserQuerySet(models.QuerySet):
+class User(models.Model):
+    username = models.CharField(max_length=35)
+
+    def __str__(self):
+        return self.username
 
     def top_buyers(self):
         top_buyers = User.objects.annotate(total_sum=Sum('transaction__total')).order_by('-total_sum')
         return top_buyers
-
-
-class User(models.Model):
-    objects = UserQuerySet.as_manager()
-    username = models.CharField(max_length=35)
 
 
 class Gem(models.Model):

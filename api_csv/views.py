@@ -1,5 +1,6 @@
 import csv
 
+from django.db.models import Sum
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
@@ -12,7 +13,8 @@ class UploadViewSet(ViewSet):
     serializer_class = UploadSerializer
 
     def get(self, request):
-        buyers = User.objects.top_buyers()[:5].prefetch_related('transaction')
+        buyers = User.objects.annotate(total_sum=Sum('transaction__total')).order_by('-total_sum')[:5].prefetch_related(
+            'transaction')
         users_gems = {}
         for user in buyers:
             user_gems = set(recording.item for recording in user.transaction.select_related('item'))
@@ -53,16 +55,16 @@ class UploadViewSet(ViewSet):
             tran_serializer = TransactionSerializer(data=dict_row)
             tran_serializer.is_valid(raise_exception=True)
 
-            recording = Transaction(
+            Transaction.objects.get_or_create(
                 customer=user,
                 item=gem,
                 total=tran_serializer.validated_data['total'],
                 quantity=tran_serializer.validated_data['quantity'],
                 date=tran_serializer.validated_data['date'],
             )
-            tran.append(recording)
+            # tran.append(recording)
 
-        Transaction.objects.bulk_create(tran)
+            # Transaction.objects.get_or_create(recording)
 
         content = []
         for recordings in tran:
